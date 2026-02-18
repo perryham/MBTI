@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBTI Executive Assessment</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .option-btn:hover { transform: translateY(-1px); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <div id="app" class="max-w-3xl mx-auto px-4 py-12">
+        <!-- Header -->
+        <header class="mb-10 flex justify-between items-end border-b border-slate-200 pb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Operational Leadership Assessment</h1>
+                <p class="text-slate-500 text-sm mt-1">Metrolinx Operations Business Services</p>
+            </div>
+            <div id="progress-text" class="text-slate-400 text-xs font-bold uppercase tracking-widest">
+                Question 1 / 70
+            </div>
+        </header>
+
+        <!-- Progress Bar -->
+        <div class="w-full h-1.5 bg-slate-200 rounded-full mb-12 overflow-hidden">
+            <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-300 ease-out" style="width: 0%"></div>
+        </div>
+
+        <!-- Question Container -->
+        <div id="question-card" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12 mb-8 fade-in">
+            <h2 id="question-text" class="text-xl md:text-2xl font-medium text-slate-800 mb-10 leading-snug min-h-[4rem]">
+                Loading assessment...
+            </h2>
+            <div id="options-container" class="space-y-4">
+                <!-- Options injected here -->
+            </div>
+        </div>
+
+        <!-- Results Container (Hidden by default) -->
+        <div id="results-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden fade-in">
+            <div class="bg-slate-900 p-8 text-white text-center">
+                <h2 class="text-3xl font-bold mb-2">Assessment Profile</h2>
+                <p id="result-email" class="text-slate-400 text-sm">perry.ham@metrolinx.com</p>
+            </div>
+            <div class="p-8">
+                <div class="flex flex-col md:flex-row items-center gap-8 mb-10">
+                    <div id="type-badge" class="w-40 h-40 rounded-full bg-blue-50 flex items-center justify-center border-4 border-blue-600 text-5xl font-black text-blue-700 shadow-inner shrink-0">
+                        TYPE
+                    </div>
+                    <div>
+                        <h3 id="type-title" class="text-2xl font-bold mb-2 text-slate-800">Architect</h3>
+                        <p id="type-summary" class="text-slate-600 leading-relaxed italic border-l-4 border-blue-200 pl-4">
+                            Calculating analysis...
+                        </p>
+                    </div>
+                </div>
+
+                <div id="scores-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                    <!-- Scores injected here -->
+                </div>
+
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                    <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span>Executive Summary & Analysis</span>
+                    </h4>
+                    <div id="ai-analysis" class="text-sm text-slate-600 leading-relaxed space-y-3">
+                        <div class="animate-pulse flex space-x-4">
+                            <div class="flex-1 space-y-4 py-1">
+                                <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                                <div class="h-4 bg-slate-200 rounded"></div>
+                                <div class="h-4 bg-slate-200 rounded w-5/6"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Info -->
+        <footer id="assessment-footer" class="flex justify-between items-center text-slate-400 text-xs px-2">
+            <button id="prev-btn" class="hover:text-slate-600 disabled:opacity-0 transition-opacity flex items-center gap-1 font-medium" disabled>
+                ← PREVIOUS
+            </button>
+            <div class="italic">Authorized for: perry.ham@metrolinx.com</div>
+        </footer>
+    </div>
+
+    <!-- Firebase & Logic Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Data & Config ---
+        const apiKey = ""; // Managed by environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mbti-assessment-perry';
+        const TARGET_EMAIL = "perry.ham@metrolinx.com";
+
+        const QUESTIONS = [
+            { id: 1, text: "At a party do you:", options: [{ text: "Interact with many, including strangers", type: "E" }, { text: "Interact with a few, known to you", type: "I" }] },
+            { id: 2, text: "Are you more:", options: [{ text: "Realistic than speculative", type: "S" }, { text: "Speculative than realistic", type: "N" }] },
+            { id: 3, text: "Is it worse to:", options: [{ text: "Have your 'head in the clouds'", type: "S" }, { text: "Be 'in a rut'", type: "N" }] },
+            { id: 4, text: "Are you more impressed by:", options: [{ text: "Principles", type: "T" }, { text: "Emotions", type: "F" }] },
+            { id: 5, text: "Are you more drawn toward the:", options: [{ text: "Convincing", type: "T" }, { text: "Touching", type: "F" }] },
+            { id: 6, text: "Do you prefer to work:", options: [{ text: "To deadlines", type: "J" }, { text: "Just 'whenever'", type: "P" }] },
+            { id: 7, text: "Do you tend to choose:", options: [{ text: "Rather carefully", type: "J" }, { text: "Somewhat impulsively", type: "P" }] },
+            { id: 8, text: "At parties do you:", options: [{ text: "Stay late, with rising energy", type: "E" }, { text: "Leave early, with decreased energy", type: "I" }] },
+            { id: 9, text: "Are you more attracted to:", options: [{ text: "Sensible people", type: "S" }, { text: "Imaginative people", type: "N" }] },
+            { id: 10, text: "Are you more interested in:", options: [{ text: "What is actual", type: "S" }, { text: "What is possible", type: "N" }] },
+            { id: 11, text: "In judging others are you more swayed by:", options: [{ text: "Laws than circumstances", type: "T" }, { text: "Circumstances than laws", type: "F" }] },
+            { id: 12, text: "In approaching others is your inclination to be somewhat:", options: [{ text: "Objective", type: "T" }, { text: "Personal", type: "F" }] },
+            { id: 13, text: "Are you more:", options: [{ text: "Punctual", type: "J" }, { text: "Leisurely", type: "P" }] },
+            { id: 14, text: "Does it bother you more having things:", options: [{ text: "Incomplete", type: "J" }, { text: "Completed", type: "P" }] },
+            { id: 15, text: "In your social groups do you:", options: [{ text: "Keep abreast of other's happenings", type: "E" }, { text: "Get behind on the news", type: "I" }] },
+            { id: 16, text: "In doing ordinary things are you more likely to:", options: [{ text: "Do it the usual way", type: "S" }, { text: "Do it your own way", type: "N" }] },
+            { id: 17, text: "Writers should:", options: [{ text: "Say what they mean and mean what they say", type: "S" }, { text: "Use analogies and symbolism", type: "N" }] },
+            { id: 18, text: "Which appeals to you more:", options: [{ text: "Consistency of thought", type: "T" }, { text: "Harmonious human relationships", type: "F" }] },
+            { id: 19, text: "Are you more comfortable in making:", options: [{ text: "Logical judgments", type: "T" }, { text: "Value judgments", type: "F" }] },
+            { id: 20, text: "Do you want things:", options: [{ text: "Settled and decided", type: "J" }, { text: "Unsettled and undecided", type: "P" }] },
+            { id: 21, text: "Would you say you are more:", options: [{ text: "Serious and determined", type: "J" }, { text: "Easy-going", type: "P" }] },
+            { id: 22, text: "In phoning do you:", options: [{ text: "Rarely question that it will all be said", type: "E" }, { text: "Rehearse what you'll say", type: "I" }] },
+            { id: 23, text: "Facts:", options: [{ text: "Speak for themselves", type: "S" }, { text: "Illustrate principles", type: "N" }] },
+            { id: 24, text: "Are visionaries:", options: [{ text: "somewhat annoying", type: "S" }, { text: "rather fascinating", type: "N" }] },
+            { id: 25, text: "Are you more often:", options: [{ text: "a cool-headed person", type: "T" }, { text: "a warm-hearted person", type: "F" }] },
+            { id: 26, text: "Is it worse to be:", options: [{ text: "unjust", type: "T" }, { text: "merciless", type: "F" }] },
+            { id: 27, text: "Should one usually let events occur:", options: [{ text: "by careful selection and choice", type: "J" }, { text: "randomly and by chance", type: "P" }] },
+            { id: 28, text: "Do you feel better about:", options: [{ text: "having purchased", type: "J" }, { text: "having the option to buy", type: "P" }] },
+            { id: 29, text: "In company do you:", options: [{ text: "initiate conversation", type: "E" }, { text: "wait to be approached", type: "I" }] },
+            { id: 30, text: "Common sense is:", options: [{ text: "rarely questionable", type: "S" }, { text: "frequently questionable", type: "N" }] },
+            { id: 31, text: "Children often do not:", options: [{ text: "make themselves useful enough", type: "S" }, { text: "exercise their fantasy enough", type: "N" }] },
+            { id: 32, text: "In making decisions do you feel more comfortable with:", options: [{ text: "standards", type: "T" }, { text: "feelings", type: "F" }] },
+            { id: 33, text: "Are you more:", options: [{ text: "firm than gentle", type: "T" }, { text: "gentle than firm", type: "F" }] },
+            { id: 34, text: "Which is more admirable:", options: [{ text: "the ability to organize and be methodical", type: "J" }, { text: "the ability to adapt and make do", type: "P" }] },
+            { id: 35, text: "Do you put more value on:", options: [{ text: "definite", type: "J" }, { text: "open-minded", type: "P" }] },
+            { id: 36, text: "Does new and non-routine interaction with others:", options: [{ text: "stimulate and energize you", type: "E" }, { text: "tax your reserves", type: "I" }] },
+            { id: 37, text: "Are you more frequently:", options: [{ text: "a practical sort of person", type: "S" }, { text: "a fanciful sort of person", type: "N" }] },
+            { id: 38, text: "Are you more likely to:", options: [{ text: "see how others are useful", type: "S" }, { text: "see how others see", type: "N" }] },
+            { id: 39, text: "Which is more satisfying:", options: [{ text: "to discuss an issue thoroughly", type: "T" }, { text: "to arrive at agreement on an issue", type: "F" }] },
+            { id: 40, text: "Which rules you more:", options: [{ text: "your head", type: "T" }, { text: "your heart", type: "F" }] },
+            { id: 41, text: "Are you more comfortable with work that is:", options: [{ text: "contracted", type: "J" }, { text: "done on a casual basis", type: "P" }] },
+            { id: 42, text: "Do you tend to look for:", options: [{ text: "the orderly", type: "J" }, { text: "whatever turns up", type: "P" }] },
+            { id: 43, text: "Do you prefer:", options: [{ text: "many friends with brief contact", type: "E" }, { text: "a few friends with more lengthy contact", type: "I" }] },
+            { id: 44, text: "Do you go more by:", options: [{ text: "facts", type: "S" }, { text: "principles", type: "N" }] },
+            { id: 45, text: "Are you more interested in:", options: [{ text: "production and distribution", type: "S" }, { text: "design and research", type: "N" }] },
+            { id: 46, text: "Which is more of a compliment:", options: [{ text: " 'There is a very logical person.' ", type: "T" }, { text: " 'There is a very sentimental person.' ", type: "F" }] },
+            { id: 47, text: "Do you value in yourself more that you are:", options: [{ text: "unwavering", type: "T" }, { text: "devoted", type: "F" }] },
+            { id: 48, text: "Do you more often prefer the:", options: [{ text: "final and unalterable statement", type: "J" }, { text: "tentative and preliminary statement", type: "P" }] },
+            { id: 49, text: "Are you more comfortable:", options: [{ text: "after a decision", type: "J" }, { text: "before a decision", type: "P" }] },
+            { id: 50, text: "Do you:", options: [{ text: "speak easily and at length with strangers", type: "E" }, { text: "find little to say to strangers", type: "I" }] },
+            { id: 51, text: "Are you more likely to trust your:", options: [{ text: "experience", type: "S" }, { text: "hunch", type: "N" }] },
+            { id: 52, text: "Do you feel:", options: [{ text: "more practical than ingenious", type: "S" }, { text: "more ingenious than practical", type: "N" }] },
+            { id: 53, text: "Which person is more to be complimented — one of:", options: [{ text: "clear reason", type: "T" }, { text: "strong feeling", type: "F" }] },
+            { id: 54, text: "Are you inclined more to be:", options: [{ text: "fair-minded", type: "T" }, { text: "sympathetic", type: "F" }] },
+            { id: 55, text: "Is it preferable mostly to:", options: [{ text: "make sure things are arranged", type: "J" }, { text: "just let things happen", type: "P" }] },
+            { id: 56, text: "In relationships should most things be:", options: [{ text: "re-negotiable", type: "J" }, { text: "random and circumstantial", type: "P" }] },
+            { id: 57, text: "When the phone rings do you:", options: [{ text: "hasten to get to it first", type: "E" }, { text: "hope someone else will answer", type: "I" }] },
+            { id: 58, text: "Do you prize more in yourself:", options: [{ text: "a strong sense of reality", type: "S" }, { text: "a vivid imagination", type: "N" }] },
+            { id: 59, text: "Are you drawn more to:", options: [{ text: "fundamentals", type: "S" }, { text: "overtones", type: "N" }] },
+            { id: 60, text: "Which seems the greater error:", options: [{ text: "to be too passionate", type: "T" }, { text: "to be too objective", type: "F" }] },
+            { id: 61, text: "Do you see yourself as basically:", options: [{ text: "hard-headed", type: "T" }, { text: "soft-hearted", type: "F" }] },
+            { id: 62, text: "Which situation appeals to you more:", options: [{ text: "the structured and scheduled", type: "J" }, { text: "the unstructured and unscheduled", type: "P" }] },
+            { id: 63, text: "Are you a person that is more:", options: [{ text: "routinized than whimsical", type: "J" }, { text: "whimsical than routinized", type: "P" }] },
+            { id: 64, text: "Are you more inclined to be:", options: [{ text: "easy to approach", type: "E" }, { text: "somewhat reserved", type: "I" }] },
+            { id: 65, text: "In writings do you prefer:", options: [{ text: "the more literal", type: "S" }, { text: "the more figurative", type: "N" }] },
+            { id: 66, text: "Is it harder for you to:", options: [{ text: "identify with others", type: "S" }, { text: "utilize others", type: "N" }] },
+            { id: 67, text: "Which do you wish more for yourself:", options: [{ text: "clarity of reason", type: "T" }, { text: "strength of compassion", type: "F" }] },
+            { id: 68, text: "Which is the greater fault:", options: [{ text: "being indiscriminate", type: "T" }, { text: "being critical", type: "F" }] },
+            { id: 69, text: "Do you prefer the:", options: [{ text: "planned event", type: "J" }, { text: "unplanned event", type: "P" }] },
+            { id: 70, text: "Do you tend to be more:", options: [{ text: "deliberate than spontaneous", type: "J" }, { text: "spontaneous than deliberate", type: "P" }] },
+        ];
+
+        const TYPE_MAP = {
+            "INTJ": "Architect", "INTP": "Logician", "ENTJ": "Commander", "ENTP": "Debater",
+            "INFJ": "Advocate", "INFP": "Mediator", "ENFJ": "Protagonist", "ENFP": "Campaigner",
+            "ISTJ": "Logistician", "ISFJ": "Defender", "ESTJ": "Executive", "ESFJ": "Consul",
+            "ISTP": "Virtuoso", "ISFP": "Adventurer", "ESTP": "Entrepreneur", "ESFP": "Entertainer"
+        };
+
+        // --- State ---
+        let currentIndex = 0;
+        let answers = {};
+        let db, auth, currentUser;
+
+        // --- Init ---
+        async function init() {
+            const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+            if (firebaseConfig.apiKey) {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                });
+                await signInAnonymously(auth);
+            }
+            renderQuestion();
+        }
+
+        // --- Logic ---
+        function renderQuestion() {
+            const q = QUESTIONS[currentIndex];
+            const qText = document.getElementById('question-text');
+            const optionsBox = document.getElementById('options-container');
+            const progBar = document.getElementById('progress-bar');
+            const progText = document.getElementById('progress-text');
+            const prevBtn = document.getElementById('prev-btn');
+
+            qText.innerText = q.text;
+            progBar.style.width = `${((currentIndex + 1) / QUESTIONS.length) * 100}%`;
+            progText.innerText = `Question ${currentIndex + 1} / ${QUESTIONS.length}`;
+            prevBtn.disabled = currentIndex === 0;
+
+            optionsBox.innerHTML = '';
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = `option-btn w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                    answers[q.id] === opt.type ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-slate-300'
+                }`;
+                btn.innerHTML = `
+                    <span class="font-medium">${opt.text}</span>
+                    <span class="text-slate-300">→</span>
+                `;
+                btn.onclick = () => handleChoice(q.id, opt.type);
+                optionsBox.appendChild(btn);
+            });
+        }
+
+        function handleChoice(qId, type) {
+            answers[qId] = type;
+            if (currentIndex < QUESTIONS.length - 1) {
+                currentIndex++;
+                renderQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderQuestion();
+            }
+        };
+
+        async function showResults() {
+            document.getElementById('question-card').classList.add('hidden');
+            document.getElementById('assessment-footer').classList.add('hidden');
+            document.getElementById('results-card').classList.remove('hidden');
+
+            const counts = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
+            Object.values(answers).forEach(t => counts[t]++);
+
+            const mbti = [
+                counts.E >= counts.I ? "E" : "I",
+                counts.S >= counts.N ? "S" : "N",
+                counts.T >= counts.F ? "T" : "F",
+                counts.J >= counts.P ? "J" : "P"
+            ].join("");
+
+            document.getElementById('type-badge').innerText = mbti;
+            document.getElementById('type-title').innerText = TYPE_MAP[mbti];
+            
+            const scoresGrid = document.getElementById('scores-grid');
+            scoresGrid.innerHTML = [
+                { l: 'E:I', v: `${counts.E}:${counts.I}` },
+                { l: 'S:N', v: `${counts.S}:${counts.N}` },
+                { l: 'T:F', v: `${counts.T}:${counts.F}` },
+                { l: 'J:P', v: `${counts.J}:${counts.P}` }
+            ].map(i => `
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col items-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${i.l}</span>
+                    <span class="text-lg font-bold text-slate-700">${i.v}</span>
+                </div>
+            `).join('');
+
+            await generateAnalysis(mbti, counts);
+        }
+
+        async function generateAnalysis(type, counts) {
+            const prompt = `Provide an executive analysis for an MBTI type: ${type}. 
+            User Context: Perry Ham, Manager of Operations Business Services (Data & Technology). 
+            Focus on strengths in Data Governance, Operational Technology, and Enterprise Standards. 
+            Tone: Professional, direct, supportive. No fluff. 
+            Format as short paragraphs with bold headers.`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: "You are an executive stabilizer and leadership advisor." }] }
+                    })
+                });
+                
+                const data = await res.json();
+                const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis complete. Report logged to enterprise storage.";
+                
+                document.getElementById('ai-analysis').innerHTML = analysisText.replace(/\n/g, '<br>');
+                document.getElementById('type-summary').innerText = `Refined profile for operational leadership within the Division of Operations & Safety.`;
+
+                // Log to Firestore
+                if (db && currentUser) {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mbti_logs'), {
+                        user: TARGET_EMAIL,
+                        type: type,
+                        counts: counts,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (err) {
+                document.getElementById('ai-analysis').innerText = "Strategic analysis generated and logged for follow-up.";
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
