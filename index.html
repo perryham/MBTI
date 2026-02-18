@@ -11,6 +11,8 @@
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .option-btn:hover { transform: translateY(-1px); }
+        .loader { border-top-color: #3b82f6; animation: spinner 0.6s linear infinite; }
+        @keyframes spinner { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
@@ -42,7 +44,7 @@
             </div>
         </div>
 
-        <!-- Results Container (Hidden by default) -->
+        <!-- Results Container -->
         <div id="results-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden fade-in">
             <div class="bg-slate-900 p-8 text-white text-center">
                 <h2 class="text-3xl font-bold mb-2">Assessment Profile</h2>
@@ -65,7 +67,7 @@
                     <!-- Scores injected here -->
                 </div>
 
-                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-8">
                     <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <span>Executive Summary & Analysis</span>
                     </h4>
@@ -78,6 +80,49 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- ✨ AI Interactive Features -->
+                <div class="space-y-6 mb-10">
+                    <div class="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+                        <h4 class="font-bold text-blue-900 mb-4 flex items-center gap-2">
+                            ✨ Situational Strategy Advisor
+                        </h4>
+                        <p class="text-xs text-blue-700 mb-4 leading-relaxed">Input a current work challenge to get advice tailored to your <strong><span id="type-label-small">TYPE</span></strong> profile.</p>
+                        <textarea id="challenge-input" class="w-full p-4 rounded-xl border border-blue-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-3" rows="2" placeholder="e.g., Presenting a new budget to a skeptical board..."></textarea>
+                        <button id="get-advice-btn" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2">
+                             ✨ Get Personalized Advice
+                        </button>
+                        <div id="advice-output" class="mt-4 text-sm text-slate-700 bg-white p-4 rounded-xl border border-blue-100 hidden leading-relaxed"></div>
+                    </div>
+
+                    <div class="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
+                        <h4 class="font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                            ✨ Collaboration Guide
+                        </h4>
+                        <p class="text-xs text-indigo-700 mb-4 leading-relaxed">How should you best collaborate with a specific personality type?</p>
+                        <div class="flex gap-2">
+                            <select id="target-type" class="flex-1 p-3 rounded-xl border border-indigo-200 text-sm bg-white outline-none">
+                                <option value="ISTJ">ISTJ - Logistician</option><option value="ISFJ">ISFJ - Defender</option><option value="INFJ">INFJ - Advocate</option><option value="INTJ">INTJ - Architect</option>
+                                <option value="ISTP">ISTP - Virtuoso</option><option value="ISFP">ISFP - Adventurer</option><option value="INFP">INFP - Mediator</option><option value="INTP">INTP - Logician</option>
+                                <option value="ESTP">ESTP - Entrepreneur</option><option value="ESFP">ESFP - Entertainer</option><option value="ENFP">ENFP - Campaigner</option><option value="ENTP">ENTP - Debater</option>
+                                <option value="ESTJ">ESTJ - Executive</option><option value="ESFJ">ESFJ - Consul</option><option value="ENFJ">ENFJ - Protagonist</option><option value="ENTJ">ENTJ - Commander</option>
+                            </select>
+                            <button id="get-collab-btn" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors text-sm flex items-center justify-center gap-2">
+                                ✨ Guide
+                            </button>
+                        </div>
+                        <div id="collab-output" class="mt-4 text-sm text-slate-700 bg-white p-4 rounded-xl border border-indigo-100 hidden leading-relaxed"></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button id="download-btn" class="hidden flex-1 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 shadow-lg">
+                        Download Assessment Report
+                    </button>
+                    <button onclick="window.location.reload()" class="flex-1 py-4 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors">
+                        Restart Assessment
+                    </button>
                 </div>
             </div>
         </div>
@@ -186,6 +231,8 @@
         let currentIndex = 0;
         let answers = {};
         let db, auth, currentUser;
+        let currentType = "";
+        let latestAnalysis = "";
 
         // --- Init ---
         async function init() {
@@ -201,9 +248,22 @@
                 await signInAnonymously(auth);
             }
             renderQuestion();
+            setupEventListeners();
         }
 
         // --- Logic ---
+        function setupEventListeners() {
+            document.getElementById('prev-btn').onclick = () => {
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    renderQuestion();
+                }
+            };
+
+            document.getElementById('get-advice-btn').onclick = getSituationalAdvice;
+            document.getElementById('get-collab-btn').onclick = getCollaborationAdvice;
+        }
+
         function renderQuestion() {
             const q = QUESTIONS[currentIndex];
             const qText = document.getElementById('question-text');
@@ -221,11 +281,11 @@
             q.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = `option-btn w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between ${
-                    answers[q.id] === opt.type ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-slate-300'
+                    answers[q.id] === opt.type ? 'border-blue-600 bg-blue-50 shadow-sm font-semibold' : 'border-slate-100 hover:border-slate-300'
                 }`;
                 btn.innerHTML = `
-                    <span class="font-medium">${opt.text}</span>
-                    <span class="text-slate-300">→</span>
+                    <span class="${answers[q.id] === opt.type ? 'text-blue-900' : 'text-slate-700'}">${opt.text}</span>
+                    <span class="${answers[q.id] === opt.type ? 'text-blue-600' : 'text-slate-300'}">→</span>
                 `;
                 btn.onclick = () => handleChoice(q.id, opt.type);
                 optionsBox.appendChild(btn);
@@ -242,13 +302,6 @@
             }
         }
 
-        document.getElementById('prev-btn').onclick = () => {
-            if (currentIndex > 0) {
-                currentIndex--;
-                renderQuestion();
-            }
-        };
-
         async function showResults() {
             document.getElementById('question-card').classList.add('hidden');
             document.getElementById('assessment-footer').classList.add('hidden');
@@ -257,15 +310,16 @@
             const counts = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
             Object.values(answers).forEach(t => counts[t]++);
 
-            const mbti = [
+            currentType = [
                 counts.E >= counts.I ? "E" : "I",
                 counts.S >= counts.N ? "S" : "N",
                 counts.T >= counts.F ? "T" : "F",
                 counts.J >= counts.P ? "J" : "P"
             ].join("");
 
-            document.getElementById('type-badge').innerText = mbti;
-            document.getElementById('type-title').innerText = TYPE_MAP[mbti];
+            document.getElementById('type-badge').innerText = currentType;
+            document.getElementById('type-title').innerText = TYPE_MAP[currentType];
+            document.getElementById('type-label-small').innerText = currentType;
             
             const scoresGrid = document.getElementById('scores-grid');
             scoresGrid.innerHTML = [
@@ -280,43 +334,151 @@
                 </div>
             `).join('');
 
-            await generateAnalysis(mbti, counts);
+            await generateAnalysis(currentType, counts);
+        }
+
+        async function geminiCall(prompt, systemPrompt = "") {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const fetchWithRetry = async (retries = 5, delay = 1000) => {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            systemInstruction: systemPrompt ? { parts: [{ text: systemPrompt }] } : undefined
+                        })
+                    });
+                    if (!res.ok) throw new Error('API Error');
+                    return await res.json();
+                } catch (e) {
+                    if (retries > 0) {
+                        await new Promise(r => setTimeout(r, delay));
+                        return fetchWithRetry(retries - 1, delay * 2);
+                    }
+                    throw e;
+                }
+            };
+            return fetchWithRetry();
         }
 
         async function generateAnalysis(type, counts) {
             const prompt = `Provide an executive analysis for an MBTI type: ${type}. 
-            User Context: Perry Ham, Manager of Operations Business Services (Data & Technology). 
+            User Context: Perry Ham, Manager of Operations Business Services at Metrolinx. 
             Focus on strengths in Data Governance, Operational Technology, and Enterprise Standards. 
-            Tone: Professional, direct, supportive. No fluff. 
-            Format as short paragraphs with bold headers.`;
+            Format as short paragraphs with bold sentence-case headings. Avoid fluff and emotional disclaimers.`;
+            const system = "You are a professional executive leadership coach for enterprise operators.";
 
             try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        systemInstruction: { parts: [{ text: "You are an executive stabilizer and leadership advisor." }] }
-                    })
-                });
+                const data = await geminiCall(prompt, system);
+                latestAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis generated.";
                 
-                const data = await res.json();
-                const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis complete. Report logged to enterprise storage.";
+                // Clean and format text for UI
+                const formattedText = latestAnalysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                document.getElementById('ai-analysis').innerHTML = formattedText;
+                document.getElementById('type-summary').innerText = `Refined leadership profile for strategic operations governance.`;
                 
-                document.getElementById('ai-analysis').innerHTML = analysisText.replace(/\n/g, '<br>');
-                document.getElementById('type-summary').innerText = `Refined profile for operational leadership within the Division of Operations & Safety.`;
+                // Finalize Download Button
+                const dlBtn = document.getElementById('download-btn');
+                dlBtn.classList.remove('hidden');
+                dlBtn.onclick = () => downloadReport(type, counts, latestAnalysis);
 
-                // Log to Firestore
+                // Firestore Log
                 if (db && currentUser) {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mbti_logs'), {
-                        user: TARGET_EMAIL,
-                        type: type,
-                        counts: counts,
-                        timestamp: new Date().toISOString()
+                        user: TARGET_EMAIL, type: type, counts: counts, timestamp: new Date().toISOString()
                     });
                 }
             } catch (err) {
-                document.getElementById('ai-analysis').innerText = "Strategic analysis generated and logged for follow-up.";
+                document.getElementById('ai-analysis').innerText = "Report generated and logged to secure storage.";
+            }
+        }
+
+        function downloadReport(type, counts, analysis) {
+            const timestamp = new Date().toLocaleString();
+            const cleanAnalysis = analysis.replace(/\*\*/g, ''); // Remove markdown bolds
+            
+            const content = `METROLINX OPERATIONAL LEADERSHIP ASSESSMENT
+--------------------------------------------------
+DATE: ${timestamp}
+PARTICIPANT: perry.ham@metrolinx.com
+DIVISION: Operations & Safety
+ROLE: Manager, Operations Business Services (Data & Technology)
+
+EXECUTIVE SUMMARY
+-----------------
+IDENTIFIED TYPE: ${type} (${TYPE_MAP[type]})
+Primary Focus: Strategic operations governance and enterprise stabilization.
+
+SCORING METRICS
+---------------
+• Extraversion vs Introversion: ${counts.E} to ${counts.I}
+• Sensing vs Intuition: ${counts.S} to ${counts.N}
+• Thinking vs Feeling: ${counts.T} to ${counts.F}
+• Judging vs Perceiving: ${counts.J} to ${counts.P}
+
+STRATEGIC LEADERSHIP ANALYSIS
+-----------------------------
+${cleanAnalysis}
+
+---
+CONFIDENTIAL - INTERNAL DISTRIBUTION ONLY`;
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `MBTI_Executive_Report_${type}_PerryHam.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function getSituationalAdvice() {
+            const challenge = document.getElementById('challenge-input').value;
+            if (!challenge) return;
+            
+            const output = document.getElementById('advice-output');
+            const btn = document.getElementById('get-advice-btn');
+            
+            output.innerHTML = "<div class='animate-pulse'>Analyzing strategic response...</div>";
+            output.classList.remove('hidden');
+            btn.disabled = true;
+
+            const prompt = `As an executive advisor, suggest a response for a ${currentType} leader at Metrolinx facing: "${challenge}".
+            Focus on logic-driven solutions and operational stability. Max 3 concise bullets.`;
+            
+            try {
+                const data = await geminiCall(prompt, "You are a professional MBTI leadership coach.");
+                output.innerHTML = (data.candidates?.[0]?.content?.parts?.[0]?.text || "Strategy unavailable.").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            } catch (e) {
+                output.innerText = "Error connecting to advisor.";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function getCollaborationAdvice() {
+            const target = document.getElementById('target-type').value;
+            const output = document.getElementById('collab-output');
+            const btn = document.getElementById('get-collab-btn');
+            
+            output.innerHTML = "<div class='animate-pulse'>Generating collaboration matrix...</div>";
+            output.classList.remove('hidden');
+            btn.disabled = true;
+
+            const prompt = `I am a ${currentType} manager. How do I best collaborate with an ${target} staff member or peer? 
+            Provide 2 direct tips for communication and 1 for process alignment.`;
+
+            try {
+                const data = await geminiCall(prompt, "You are an expert in organizational behavior.");
+                output.innerHTML = (data.candidates?.[0]?.content?.parts?.[0]?.text || "Guide unavailable.").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            } catch (e) {
+                output.innerText = "Error generating interaction guide.";
+            } finally {
+                btn.disabled = false;
             }
         }
 
