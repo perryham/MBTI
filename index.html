@@ -27,7 +27,6 @@
         .fade-in { animation: fadeIn 0.4s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .option-btn:hover { border-color: #000000; background-color: #f9fafb; }
-        .custom-shadow { shadow-sm; border: 1px solid #e5e7eb; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -94,26 +93,16 @@
 
                 <div id="scores-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10"></div>
 
-                <div class="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8">
-                    <h4 class="font-bold text-brand-black mb-4">Executive summary and analysis</h4>
-                    <div id="ai-analysis" class="text-sm text-slate-600 leading-relaxed space-y-4">
-                        <div class="animate-pulse flex space-x-4">
-                            <div class="flex-1 space-y-4 py-1">
-                                <div class="h-3 bg-slate-200 rounded w-3/4"></div>
-                                <div class="h-3 bg-slate-200 rounded"></div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Type Definition Section -->
+                <div class="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-6">
+                    <h4 class="font-bold text-brand-black mb-4 uppercase text-xs tracking-widest">Type definition</h4>
+                    <div id="type-definition" class="text-sm text-slate-700 leading-relaxed space-y-4"></div>
                 </div>
 
-                <!-- ✨ AI Interactive Features -->
-                <div class="space-y-4 mb-10">
-                    <div class="bg-white rounded-xl p-6 border-2 border-brand-mint">
-                        <h4 class="font-bold text-brand-black mb-3">Situational strategy advisor</h4>
-                        <textarea id="challenge-input" class="w-full p-4 rounded-lg border border-slate-200 text-sm mb-3 outline-none focus:border-brand-mint" rows="2" placeholder="Describe an operational challenge..."></textarea>
-                        <button id="get-advice-btn" class="w-full py-3 bg-brand-mint text-brand-black rounded-lg font-bold text-sm hover:opacity-90">Get personalized advice</button>
-                        <div id="advice-output" class="mt-4 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg border border-slate-100 hidden"></div>
-                    </div>
+                <!-- Work Style Section -->
+                <div class="bg-white rounded-xl p-6 border-2 border-brand-mint mb-10">
+                    <h4 class="font-bold text-brand-black mb-4 uppercase text-xs tracking-widest">Professional work style</h4>
+                    <div id="work-style-analysis" class="text-sm text-slate-700 leading-relaxed space-y-4"></div>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-4">
@@ -129,7 +118,7 @@
 
         <footer id="assessment-footer" class="flex justify-between items-center text-slate-400 text-xs px-2 mt-4">
             <button id="prev-btn" class="hover:text-brand-black disabled:opacity-0 font-bold tracking-widest" disabled>← PREVIOUS</button>
-            <div id="footer-context" class="italic">Enterprise Assessment Engine v3.1</div>
+            <div id="footer-context" class="italic">Enterprise Assessment Engine v4.0</div>
         </footer>
     </div>
 
@@ -138,8 +127,90 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const apiKey = ""; 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mbti-assessment-perry';
+
+        const LEADERSHIP_DICTIONARY = {
+            "INTJ": {
+                title: "Architect",
+                definition: "Strategic thinkers with an internal plan for every scenario. They prioritize logic, objective data, and long-term vision over short-term social consensus.",
+                workStyle: "They thrive in data governance by building structured frameworks and complex metadata lineage. They are stabilizers who value enterprise standards and have zero patience for process vagueness or political obscurity."
+            },
+            "ENTJ": {
+                title: "Commander",
+                definition: "Bold, imaginative, and strong-willed leaders. They are natural organizers who excel at translating complex problems into actionable roadmaps.",
+                workStyle: "In operations, they act as decisive operators who operationalize data quality checks and enforce governance standards across cross-functional teams with authority."
+            },
+            "ISTJ": {
+                title: "Logistician",
+                definition: "Practical and fact-minded individuals. They value reliability, tradition, and established processes above all else.",
+                workStyle: "They are the bedrock of data quality management. Their work style is characterized by extreme detail-orientation and a commitment to documented standards and predictable cycles."
+            },
+            "ESTJ": {
+                title: "Executive",
+                definition: "Excellent administrators who are unsurpassed at managing things or people. They prioritize clear rules and organizational hierarchy.",
+                workStyle: "They excel in building full governance operating models and leading Lean A3 projects. They prioritize quantified results and expect high competence from all project stakeholders."
+            },
+            "INTP": {
+                title: "Logician",
+                definition: "Innovative inventors with an unquenchable thirst for knowledge. They focus on internal logical consistency and conceptual integrity.",
+                workStyle: "Highly valuable in operational technology research. They prefer solving complex analytics governance problems but require structured reporting lines to remain focused on delivery."
+            },
+            "ENTP": {
+                title: "Debater",
+                definition: "Smart and curious thinkers who cannot resist an intellectual challenge. They are adaptable and thrive on exploring new possibilities.",
+                workStyle: "They are effective at identifying gaps in enterprise transitions. They thrive in building automations using the Power Platform but benefit from partnering with a stabilizer to finalize long-term standards."
+            },
+            "INFJ": {
+                title: "Advocate",
+                definition: "Quiet and mystical, yet very inspiring and tireless idealists. They possess a deep sense of integrity and a desire to help others.",
+                workStyle: "In governance, they excel at leading cross-functional work where privacy and ethics are paramount. They advocate for data standards as a means to protect organizational and customer integrity."
+            },
+            "ENFJ": {
+                title: "Protagonist",
+                definition: "Charismatic and inspiring leaders. They are natural motivators who excel at building consensus and navigating organizational politics.",
+                workStyle: "They are ideal for managing the human element of high-level organizational shifts. They bridge the gap between technical DG standards and departmental adoption through influence."
+            },
+            "ISTP": {
+                title: "Virtuoso",
+                definition: "Bold and practical experimenters, masters of all kinds of tools. They prefer to solve problems through direct action and technical application.",
+                workStyle: "Expert in building automations in Databricks or Office Scripts. Their work style is focused on root cause analysis and immediate technical resolution of data quality issues."
+            },
+            "ISFP": {
+                title: "Adventurer",
+                definition: "Flexible and charming artists, always ready to explore and experience something new. They value personal space and living in the moment.",
+                workStyle: "They bring a unique perspective to customer analytics and visualization. They work best in environments with low political chaos and clear, supportive boundaries."
+            },
+            "INFP": {
+                title: "Mediator",
+                definition: "Poetic, kind, and altruistic people. They are guided by their inner values and are eager to help others reach their potential.",
+                workStyle: "They support divisional governance by ensuring that metadata and lineage serve the larger organizational purpose. They value clarity of intent and empathetic leadership."
+            },
+            "ENFP": {
+                title: "Campaigner",
+                definition: "Enthusiastic, creative, and sociable free spirits. They see possibilities everywhere and are energized by new ideas.",
+                workStyle: "Excellent at social-driven change management. They can generate excitement for new enterprise standards but require structured frameworks to ensure long-term stability."
+            },
+            "ESTP": {
+                title: "Entrepreneur",
+                definition: "Smart, energetic, and very perceptive people. They truly enjoy living on the edge and respond quickly to immediate crises.",
+                workStyle: "In operations, they are effective 'troubleshooters' for CAD/AVL or ServiceNow issues. They prefer dynamic, hands-on problem solving over long-term documentation projects."
+            },
+            "ESFP": {
+                title: "Entertainer",
+                definition: "Spontaneous, energetic, and enthusiastic people. They thrive in social settings and value immediate engagement.",
+                workStyle: "They improve team dynamics in high-stress environments. They work best when technical standards are translated into clear, engaging, and collaborative processes."
+            },
+            "ISFJ": {
+                title: "Defender",
+                definition: "Very dedicated and warm protectors. They are reliable and value harmony, often working tirelessly in the background.",
+                workStyle: "They are the backbone of RIM and customer data maintenance. They ensure that data quality checks are performed with consistency and care, valuing predictable work cycles."
+            },
+            "ESFJ": {
+                title: "Consul",
+                definition: "Extraordinarily caring, social, and popular people. They are eager to help and value cooperation and clear social order.",
+                workStyle: "They excel in project coordination for RTSI and MySafety initiatives. They ensure that enterprise transitions are handled with attention to both process and people."
+            }
+        };
 
         const QUESTIONS = [
             { id: 1, text: "In a professional setting, do you:", options: [{ text: "Prefer to interact with a wide range of people", type: "E" }, { text: "Prefer to speak with a few trusted colleagues", type: "I" }] },
@@ -214,21 +285,7 @@
             { id: 70, text: "Is your leadership:", options: [{ text: "Planned", type: "J" }, { text: "Responsive", type: "P" }] }
         ];
 
-        const TYPE_MAP = {
-            "INTJ": "Architect", "INTP": "Logician", "ENTJ": "Commander", "ENTP": "Debater",
-            "INFJ": "Advocate", "INFP": "Mediator", "ENFJ": "Protagonist", "ENFP": "Campaigner",
-            "ISTJ": "Logistician", "ISFJ": "Defender", "ESTJ": "Executive", "ESFJ": "Consul",
-            "ISTP": "Virtuoso", "ISFP": "Adventurer", "ESTP": "Entrepreneur", "ESFP": "Entertainer"
-        };
-
-        const PALETTE = {
-            E: 'bg-brand-blue', I: 'bg-brand-blue',
-            S: 'bg-brand-mint', N: 'bg-brand-mint',
-            T: 'bg-brand-coral', F: 'bg-brand-coral',
-            J: 'bg-brand-pear', P: 'bg-brand-pear'
-        };
-
-        let currentIndex = 0, answers = {}, db, auth, currentUser, currentType = "", latestAnalysis = "", participantName = "", participantEmail = "";
+        let currentIndex = 0, answers = {}, db, auth, currentUser, currentType = "", participantName = "", participantEmail = "";
 
         async function init() {
             const config = JSON.parse(window.__firebase_config || '{}');
@@ -240,8 +297,6 @@
             }
             document.getElementById('start-btn').onclick = startAssessment;
             document.getElementById('prev-btn').onclick = () => { if (currentIndex > 0) { currentIndex--; renderQuestion(); } };
-            document.getElementById('get-advice-btn').onclick = getSituationalAdvice;
-            document.getElementById('download-btn').onclick = () => downloadReport(currentType, answers, latestAnalysis);
         }
 
         function startAssessment() {
@@ -276,11 +331,16 @@
             document.getElementById('results-card').classList.remove('hidden');
             document.getElementById('result-display-name').innerText = participantName;
             document.getElementById('result-display-email').innerText = participantEmail;
+            
             const c = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
             Object.values(answers).forEach(t => c[t]++);
+            
             currentType = [c.E >= c.I ? "E" : "I", c.S >= c.N ? "S" : "N", c.T >= c.F ? "T" : "F", c.J >= c.P ? "J" : "P"].join("");
+            
             document.getElementById('type-badge').innerText = currentType;
-            document.getElementById('type-title').innerText = TYPE_MAP[currentType];
+            const profile = LEADERSHIP_DICTIONARY[currentType] || LEADERSHIP_DICTIONARY["INTJ"];
+            document.getElementById('type-title').innerText = profile.title;
+            
             const g = document.getElementById('scores-grid');
             const metrics = [
                 { l: 'E vs I', v: `${c.E}:${c.I}`, c: 'bg-brand-blue' },
@@ -289,42 +349,55 @@
                 { l: 'J vs P', v: `${c.J}:${c.P}`, c: 'bg-brand-pear' }
             ];
             g.innerHTML = metrics.map(i => `<div class="${i.c} p-4 rounded-xl border border-brand-black flex flex-col items-center"><span class="text-[10px] font-bold text-brand-black uppercase tracking-widest">${i.l}</span><span class="text-lg font-bold text-brand-black">${i.v}</span></div>`).join('');
-            generateAnalysis(currentType, c);
+            
+            // Populate static analysis content
+            document.getElementById('type-definition').innerText = profile.definition;
+            document.getElementById('work-style-analysis').innerText = profile.workStyle;
+            
+            document.getElementById('download-btn').onclick = () => downloadReport(currentType, c, profile);
+
+            if (db && currentUser) {
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mbti_logs'), { 
+                        participant: participantName, 
+                        email: participantEmail, 
+                        type: currentType, 
+                        timestamp: new Date().toISOString() 
+                    });
+                } catch (e) { /* silent log failure */ }
+            }
         }
 
-        async function generateAnalysis(type, counts) {
-            const prompt = `Provide an executive analysis for an MBTI type: ${type}. Participant: ${participantName}. Context: Metrolinx Operations Business Services. Focus on Data Governance and Enterprise Standards. No fluff. Headings in sentence case.`;
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: "Executive leadership coach tone." }] } })
-                });
-                const d = await res.json();
-                latestAnalysis = d.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis complete.";
-                document.getElementById('ai-analysis').innerHTML = latestAnalysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                if (db && currentUser) {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mbti_logs'), { participant: participantName, email: participantEmail, type: type, timestamp: new Date().toISOString() });
-                }
-            } catch (e) { document.getElementById('ai-analysis').innerText = "Strategic report finalized."; }
-        }
-
-        async function getSituationalAdvice() {
-            const chal = document.getElementById('challenge-input').value; if (!chal) return;
-            const out = document.getElementById('advice-output'), btn = document.getElementById('get-advice-btn');
-            out.innerHTML = "Consulting advisor..."; out.classList.remove('hidden'); btn.disabled = true;
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: `Strategy for ${currentType} leader facing: ${chal}` }] }] })
-                });
-                const d = await res.json();
-                out.innerHTML = d.candidates?.[0]?.content?.parts?.[0]?.text.replace(/\n/g, '<br>');
-            } catch (e) { out.innerText = "Error consulting advisor."; } finally { btn.disabled = false; }
-        }
-
-        function downloadReport(type, answers, analysis) {
+        function downloadReport(type, counts, profile) {
             const date = new Date().toLocaleString();
-            const content = `METROLINX EXECUTIVE ASSESSMENT\nDate: ${date}\nParticipant: ${participantName}\nEmail: ${participantEmail}\n\nPROFILE\nType: ${type}\nRole: ${TYPE_MAP[type]}\n\nANALYSIS\n${analysis.replace(/\*\*/g, '')}\n\nCONFIDENTIAL - OPERATIONS BUSINESS SERVICES`;
+            const content = `METROLINX EXECUTIVE ASSESSMENT
+-------------------------------
+Date: ${date}
+Participant: ${participantName}
+Email: ${participantEmail}
+
+Executive profile
+-----------------
+Type: ${type}
+Role designation: ${profile.title}
+
+Scoring breakdown
+-----------------
+Extraversion vs Introversion: ${counts.E} to ${counts.I}
+Sensing vs Intuition: ${counts.S} to ${counts.N}
+Thinking vs Feeling: ${counts.T} to ${counts.F}
+Judging vs Perceiving: ${counts.J} to ${counts.P}
+
+Type definition
+---------------
+${profile.definition}
+
+Professional work style
+-----------------------
+${profile.workStyle}
+
+CONFIDENTIAL - OPERATIONS BUSINESS SERVICES`;
+
             const blob = new Blob([content], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
