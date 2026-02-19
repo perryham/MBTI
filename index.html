@@ -24,18 +24,38 @@
                 <h1 class="text-2xl font-bold text-slate-800">Operational Leadership Assessment</h1>
                 <p class="text-slate-500 text-sm mt-1">Metrolinx Operations Business Services</p>
             </div>
-            <div id="progress-text" class="text-slate-400 text-xs font-bold uppercase tracking-widest">
+            <div id="progress-text" class="text-slate-400 text-xs font-bold uppercase tracking-widest hidden">
                 Question 1 / 70
             </div>
         </header>
 
-        <!-- Progress Bar -->
-        <div class="w-full h-1.5 bg-slate-200 rounded-full mb-12 overflow-hidden">
+        <!-- Progress Bar (Initially Hidden) -->
+        <div id="progress-container" class="w-full h-1.5 bg-slate-200 rounded-full mb-12 overflow-hidden hidden">
             <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-300 ease-out" style="width: 0%"></div>
         </div>
 
-        <!-- Question Container -->
-        <div id="question-card" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12 mb-8 fade-in">
+        <!-- Registration Card -->
+        <div id="registration-card" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12 mb-8 fade-in">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Participant Registration</h2>
+            <p class="text-slate-500 text-sm mb-8">Please provide your details to begin the executive leadership assessment.</p>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" id="reg-name" class="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Enter your full name">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
+                    <input type="email" id="reg-email" class="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="e.g., name@metrolinx.com">
+                </div>
+                <button id="start-btn" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                    Begin Assessment
+                </button>
+            </div>
+        </div>
+
+        <!-- Question Container (Initially Hidden) -->
+        <div id="question-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12 mb-8 fade-in">
             <h2 id="question-text" class="text-xl md:text-2xl font-medium text-slate-800 mb-10 leading-snug min-h-[4rem]">
                 Loading assessment...
             </h2>
@@ -44,11 +64,12 @@
             </div>
         </div>
 
-        <!-- Results Container -->
+        <!-- Results Container (Initially Hidden) -->
         <div id="results-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden fade-in">
             <div class="bg-slate-900 p-8 text-white text-center">
                 <h2 class="text-3xl font-bold mb-2">Assessment Profile</h2>
-                <p id="result-email" class="text-slate-400 text-sm">perry.ham@metrolinx.com</p>
+                <p id="result-display-name" class="text-white font-medium"></p>
+                <p id="result-display-email" class="text-slate-400 text-sm"></p>
             </div>
             <div class="p-8">
                 <div class="flex flex-col md:flex-row items-center gap-8 mb-10">
@@ -132,7 +153,7 @@
             <button id="prev-btn" class="hover:text-slate-600 disabled:opacity-0 transition-opacity flex items-center gap-1 font-medium" disabled>
                 ← PREVIOUS
             </button>
-            <div class="italic">Authorized for: perry.ham@metrolinx.com</div>
+            <div id="footer-context" class="italic">Enterprise Assessment Engine v2.1</div>
         </footer>
     </div>
 
@@ -145,7 +166,6 @@
         // --- Data & Config ---
         const apiKey = ""; // Managed by environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mbti-assessment-perry';
-        const TARGET_EMAIL = "perry.ham@metrolinx.com";
 
         const QUESTIONS = [
             { id: 1, text: "At a party do you:", options: [{ text: "Interact with many, including strangers", type: "E" }, { text: "Interact with a few, known to you", type: "I" }] },
@@ -203,7 +223,6 @@
             { id: 53, text: "Which person is more to be complimented — one of:", options: [{ text: "clear reason", type: "T" }, { text: "strong feeling", type: "F" }] },
             { id: 54, text: "Are you inclined more to be:", options: [{ text: "fair-minded", type: "T" }, { text: "sympathetic", type: "F" }] },
             { id: 55, text: "Is it preferable mostly to:", options: [{ text: "make sure things are arranged", type: "J" }, { text: "just let things happen", type: "P" }] },
-            { id: 56, text: "In relationships should most things be:", options: [{ text: "re-negotiable", type: "J" }, { text: "random and circumstantial", type: "P" }] },
             { id: 57, text: "When the phone rings do you:", options: [{ text: "hasten to get to it first", type: "E" }, { text: "hope someone else will answer", type: "I" }] },
             { id: 58, text: "Do you prize more in yourself:", options: [{ text: "a strong sense of reality", type: "S" }, { text: "a vivid imagination", type: "N" }] },
             { id: 59, text: "Are you drawn more to:", options: [{ text: "fundamentals", type: "S" }, { text: "overtones", type: "N" }] },
@@ -233,6 +252,9 @@
         let db, auth, currentUser;
         let currentType = "";
         let latestAnalysis = "";
+        
+        let participantName = "";
+        let participantEmail = "";
 
         // --- Init ---
         async function init() {
@@ -247,12 +269,14 @@
                 });
                 await signInAnonymously(auth);
             }
-            renderQuestion();
+            
             setupEventListeners();
         }
 
         // --- Logic ---
         function setupEventListeners() {
+            document.getElementById('start-btn').onclick = startAssessment;
+            
             document.getElementById('prev-btn').onclick = () => {
                 if (currentIndex > 0) {
                     currentIndex--;
@@ -262,6 +286,27 @@
 
             document.getElementById('get-advice-btn').onclick = getSituationalAdvice;
             document.getElementById('get-collab-btn').onclick = getCollaborationAdvice;
+        }
+
+        function startAssessment() {
+            const nameInput = document.getElementById('reg-name');
+            const emailInput = document.getElementById('reg-email');
+            
+            if (!nameInput.value.trim() || !emailInput.value.trim()) {
+                nameInput.classList.add('border-red-500');
+                emailInput.classList.add('border-red-500');
+                return;
+            }
+
+            participantName = nameInput.value.trim();
+            participantEmail = emailInput.value.trim();
+
+            document.getElementById('registration-card').classList.add('hidden');
+            document.getElementById('question-card').classList.remove('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('progress-text').classList.remove('hidden');
+            
+            renderQuestion();
         }
 
         function renderQuestion() {
@@ -304,8 +349,13 @@
 
         async function showResults() {
             document.getElementById('question-card').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('progress-text').classList.add('hidden');
             document.getElementById('assessment-footer').classList.add('hidden');
             document.getElementById('results-card').classList.remove('hidden');
+
+            document.getElementById('result-display-name').innerText = participantName;
+            document.getElementById('result-display-email').innerText = participantEmail;
 
             const counts = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
             Object.values(answers).forEach(t => counts[t]++);
@@ -365,46 +415,48 @@
 
         async function generateAnalysis(type, counts) {
             const prompt = `Provide an executive analysis for an MBTI type: ${type}. 
-            User Context: Perry Ham, Manager of Operations Business Services at Metrolinx. 
+            Participant Name: ${participantName}. 
+            Context: Operations Business Services at Metrolinx. 
             Focus on strengths in Data Governance, Operational Technology, and Enterprise Standards. 
-            Format as short paragraphs with bold sentence-case headings. Avoid fluff and emotional disclaimers.`;
+            Format as short paragraphs with bold sentence-case headings. Avoid fluff.`;
             const system = "You are a professional executive leadership coach for enterprise operators.";
 
             try {
                 const data = await geminiCall(prompt, system);
                 latestAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis generated.";
                 
-                // Clean and format text for UI
-                const formattedText = latestAnalysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                const formattedText = latestAnalysis.replace(/\n/g, '<br>').replace(/\*\?(.*?)\*\*/g, '<strong>$1</strong>');
                 document.getElementById('ai-analysis').innerHTML = formattedText;
-                document.getElementById('type-summary').innerText = `Refined leadership profile for strategic operations governance.`;
+                document.getElementById('type-summary').innerText = `Strategic operational leadership profile for ${participantName}.`;
                 
-                // Finalize Download Button
                 const dlBtn = document.getElementById('download-btn');
                 dlBtn.classList.remove('hidden');
                 dlBtn.onclick = () => downloadReport(type, counts, latestAnalysis);
 
-                // Firestore Log
                 if (db && currentUser) {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mbti_logs'), {
-                        user: TARGET_EMAIL, type: type, counts: counts, timestamp: new Date().toISOString()
+                        participant: participantName,
+                        email: participantEmail,
+                        type: type,
+                        counts: counts,
+                        timestamp: new Date().toISOString()
                     });
                 }
             } catch (err) {
-                document.getElementById('ai-analysis').innerText = "Report generated and logged to secure storage.";
+                document.getElementById('ai-analysis').innerText = "Strategic report finalized.";
             }
         }
 
         function downloadReport(type, counts, analysis) {
             const timestamp = new Date().toLocaleString();
-            const cleanAnalysis = analysis.replace(/\*\*/g, ''); // Remove markdown bolds
+            const cleanAnalysis = analysis.replace(/\*\*/g, '');
             
             const content = `METROLINX OPERATIONAL LEADERSHIP ASSESSMENT
 --------------------------------------------------
 DATE: ${timestamp}
-PARTICIPANT: perry.ham@metrolinx.com
-DIVISION: Operations & Safety
-ROLE: Manager, Operations Business Services (Data & Technology)
+PARTICIPANT: ${participantName}
+EMAIL: ${participantEmail}
+ROLE CONTEXT: Operations Business Services
 
 EXECUTIVE SUMMARY
 -----------------
@@ -430,7 +482,7 @@ CONFIDENTIAL - INTERNAL DISTRIBUTION ONLY`;
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = `MBTI_Executive_Report_${type}_PerryHam.txt`;
+            a.download = `MBTI_Report_${participantName.replace(/\s/g, '_')}_${type}.txt`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -447,7 +499,7 @@ CONFIDENTIAL - INTERNAL DISTRIBUTION ONLY`;
             output.classList.remove('hidden');
             btn.disabled = true;
 
-            const prompt = `As an executive advisor, suggest a response for a ${currentType} leader at Metrolinx facing: "${challenge}".
+            const prompt = `As an executive advisor for ${participantName}, suggest a response for a ${currentType} leader at Metrolinx facing: "${challenge}".
             Focus on logic-driven solutions and operational stability. Max 3 concise bullets.`;
             
             try {
@@ -469,7 +521,7 @@ CONFIDENTIAL - INTERNAL DISTRIBUTION ONLY`;
             output.classList.remove('hidden');
             btn.disabled = true;
 
-            const prompt = `I am a ${currentType} manager. How do I best collaborate with an ${target} staff member or peer? 
+            const prompt = `I am a ${currentType} manager named ${participantName}. How do I best collaborate with an ${target} staff member or peer? 
             Provide 2 direct tips for communication and 1 for process alignment.`;
 
             try {
